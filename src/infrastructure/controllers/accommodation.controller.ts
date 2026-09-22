@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, Headers } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
 import { CreateRoomDto } from '../dto/create-room.dto';
 import { UpdateRoomDto } from '../dto/update-room.dto';
@@ -19,6 +19,7 @@ import { GetAllBuildingsUseCase } from '../../application/use-cases/get-all-buil
 import { CreateStudentUseCase } from '../../application/use-cases/create-student.usecase';
 import { GetAllStudentsUseCase } from '../../application/use-cases/get-all-students.usecase';
 import { AssignStudentToRoomUseCase } from '../../application/use-cases/assign-student-to-room.usecase';
+import { ResolveCurrentStudentUseCase } from '../../application/use-cases/resolve-current-student.usecase';
 import { RolesGuard, Roles } from '../guards/roles.guard';
 
 @ApiTags('Accommodation')
@@ -44,7 +45,20 @@ export class AccommodationController {
         private readonly createStudentUseCase: CreateStudentUseCase,
         private readonly getAllStudentsUseCase: GetAllStudentsUseCase,
         private readonly assignStudentToRoomUseCase: AssignStudentToRoomUseCase,
+        private readonly resolveCurrentStudentUseCase: ResolveCurrentStudentUseCase,
     ) { }
+
+    @Get('students/me')
+    @ApiOperation({ summary: "Resolve the logged-in student's own record (links Asgardeo account to Student by email on first call)" })
+    @ApiHeader({ name: 'x-user-id', description: 'Injected by the gateway from the JWT `sub` claim', required: true })
+    @ApiHeader({ name: 'x-user-email', description: 'Injected by the gateway from the JWT `email` claim', required: false })
+    async getCurrentStudent(@Headers('x-user-id') asgardeoSub: string, @Headers('x-user-email') email?: string) {
+        const student = await this.resolveCurrentStudentUseCase.execute(asgardeoSub, email);
+        return {
+            message: 'Resolved current student successfully.',
+            data: student,
+        };
+    }
 
     @Post('rooms')
     @Roles('staff', 'warden', 'super-admin')

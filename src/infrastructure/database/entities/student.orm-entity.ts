@@ -26,6 +26,21 @@ export class StudentOrmEntity {
     @Column({ type: 'varchar', length: 255, nullable: true })
     address: string | null;
 
+    @Column({ type: 'varchar', length: 100, nullable: true, unique: true })
+    asgardeoSub: string | null;
+
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    faculty: string | null;
+
+    @Column({ type: 'varchar', length: 150, nullable: true })
+    degreeProgram: string | null;
+
+    @Column({ type: 'varchar', length: 30, nullable: true })
+    academicYear: string | null;
+
+    @Column({ type: 'varchar', length: 30, nullable: true })
+    nic: string | null;
+
     @CreateDateColumn()
     joinedDate: Date;
 }

@@ -25,6 +25,7 @@ import { StudentRepository } from './infrastructure/database/repositories/studen
 import { CreateStudentUseCase } from './application/use-cases/create-student.usecase';
 import { GetAllStudentsUseCase } from './application/use-cases/get-all-students.usecase';
 import { AssignStudentToRoomUseCase } from './application/use-cases/assign-student-to-room.usecase';
+import { ResolveCurrentStudentUseCase } from './application/use-cases/resolve-current-student.usecase';
 
 @Module({
     // 1. Crucial: This tells NestJS and TypeORM to generate/manage the tables for this module
@@ -47,6 +48,7 @@ import { AssignStudentToRoomUseCase } from './application/use-cases/assign-stude
         CreateStudentUseCase,
         GetAllStudentsUseCase,
         AssignStudentToRoomUseCase,
+        ResolveCurrentStudentUseCase,
         {
             provide: ROOM_REPOSITORY,
             useClass: RoomRepository

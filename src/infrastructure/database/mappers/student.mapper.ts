@@ -12,7 +12,12 @@ export class StudentMapper {
             raw.guardianName,
             raw.guardianContact,
             raw.address,
-            raw.joinedDate
+            raw.joinedDate,
+            raw.asgardeoSub,
+            raw.faculty,
+            raw.degreeProgram,
+            raw.academicYear,
+            raw.nic
         );
     }
 
@@ -26,6 +31,11 @@ export class StudentMapper {
         ormEntity.guardianName = domainStudent.guardianName;
         ormEntity.guardianContact = domainStudent.guardianContact;
         ormEntity.address = domainStudent.address;
+        ormEntity.asgardeoSub = domainStudent.asgardeoSub;
+        ormEntity.faculty = domainStudent.faculty;
+        ormEntity.degreeProgram = domainStudent.degreeProgram;
+        ormEntity.academicYear = domainStudent.academicYear;
+        ormEntity.nic = domainStudent.nic;
         return ormEntity;
     }
 }
