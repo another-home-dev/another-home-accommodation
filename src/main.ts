@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import { registerWithConsul } from './consul-registration';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
@@ -13,14 +14,16 @@ async function bootstrap() {
     }));
 
     const config = new DocumentBuilder()
-        .setTitle('Another Home API')
-        .setDescription('The API documentation for the Another Home Hostel Management System')
+        .setTitle('Accommodation Service API')
+        .setDescription('Rooms, beds, buildings, students, and bed allocations.')
         .setVersion('1.0')
         .build();
 
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api/docs', app, document);
 
-    await app.listen(4001);
+    const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 4001;
+    await app.listen(port);
+    registerWithConsul('accommodation', port);
 }
 bootstrap();

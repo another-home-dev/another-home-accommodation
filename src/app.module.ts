@@ -5,6 +5,7 @@ import { BedOrmEntity } from './infrastructure/database/entities/bed.orm-entity'
 import { BuildingOrmEntity } from './infrastructure/database/entities/building.orm-entity';
 import { StudentOrmEntity } from './infrastructure/database/entities/student.orm-entity';
 import { AccommodationModule } from './accommodation.module';
+import { HealthController } from './health.controller';
 
 @Module({
     imports: [
@@ -21,6 +22,6 @@ import { AccommodationModule } from './accommodation.module';
         }),
         AccommodationModule,
     ],
-
+    controllers: [HealthController],
 })
 export class AppModule { }
