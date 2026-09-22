@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
 import { CreateRoomDto } from '../dto/create-room.dto';
 import { UpdateRoomDto } from '../dto/update-room.dto';
 import { AssignRoomDto } from '../dto/assign-room.dto';
@@ -23,6 +23,10 @@ import { RolesGuard, Roles } from '../guards/roles.guard';
 
 @ApiTags('Accommodation')
 @ApiBearerAuth()
+// Dev/testing only: in production this header is injected by the gateway after verifying
+// the Asgardeo JWT. Swagger talks to this service directly, bypassing the gateway, so this
+// header lets you simulate a role here (e.g. "warden" or "super-admin") for manual testing.
+@ApiHeader({ name: 'x-user-roles', description: 'Dev/testing only — comma-separated roles, normally injected by the gateway', required: false })
 @UseGuards(RolesGuard)
 @Controller('accommodation')
 export class AccommodationController {
@@ -43,7 +47,7 @@ export class AccommodationController {
     ) { }
 
     @Post('rooms')
-    @Roles('staff')
+    @Roles('staff', 'warden', 'super-admin')
     @ApiOperation({ summary: 'Create a new hostel room' })
     @ApiResponse({ status: 201, description: 'Room created successfully.' })
     async createRoom(@Body() createRoomDto: CreateRoomDto) {
@@ -66,7 +70,7 @@ export class AccommodationController {
     }
 
     @Post('beds')
-    @Roles('staff')
+    @Roles('staff', 'warden', 'super-admin')
     @ApiOperation({ summary: 'Create a new bed in a room' })
     @ApiResponse({ status: 201, description: 'Bed created successfully.' })
     async createBed(@Body() createBedDto: CreateBedDto) {
@@ -78,7 +82,7 @@ export class AccommodationController {
     }
 
     @Post('allocations')
-    @Roles('staff')
+    @Roles('staff', 'warden', 'super-admin')
     @ApiOperation({ summary: 'Assign a student to a specific bed' })
     @ApiResponse({ status: 201, description: 'Student successfully allocated.' })
     @ApiResponse({ status: 400, description: 'Bed already occupied or not found.' })
@@ -102,7 +106,7 @@ export class AccommodationController {
     }
 
     @Patch('rooms/:id')
-    @Roles('staff')
+    @Roles('staff', 'warden', 'super-admin')
     @ApiOperation({ summary: 'Update an existing hostel room' })
     async updateRoom(@Param('id') id: string, @Body() updateRoomDto: UpdateRoomDto) {
         const room = await this.updateRoomUseCase.execute(id, updateRoomDto);
@@ -113,7 +117,7 @@ export class AccommodationController {
     }
 
     @Delete('rooms/:id')
-    @Roles('staff')
+    @Roles('staff', 'warden', 'super-admin')
     @ApiOperation({ summary: 'Delete a hostel room' })
     async deleteRoom(@Param('id') id: string) {
         await this.deleteRoomUseCase.execute(id);
@@ -123,7 +127,7 @@ export class AccommodationController {
     }
 
     @Post('rooms/:id/assign')
-    @Roles('staff')
+    @Roles('staff', 'warden', 'super-admin')
     @ApiOperation({ summary: 'Assign a student to the next available bed in a room' })
     async assignStudentToRoom(@Param('id') id: string, @Body() assignRoomDto: AssignRoomDto) {
         const allocation = await this.assignStudentToRoomUseCase.execute(id, assignRoomDto.studentId);
@@ -134,7 +138,7 @@ export class AccommodationController {
     }
 
     @Post('buildings')
-    @Roles('staff')
+    @Roles('staff', 'warden', 'super-admin')
     @ApiOperation({ summary: 'Create a new hostel building' })
     async createBuilding(@Body() createBuildingDto: CreateBuildingDto) {
         const building = await this.createBuildingUseCase.execute(createBuildingDto);
@@ -155,7 +159,7 @@ export class AccommodationController {
     }
 
     @Post('students')
-    @Roles('staff')
+    @Roles('staff', 'warden', 'super-admin')
     @ApiOperation({ summary: 'Register a new student' })
     async createStudent(@Body() createStudentDto: CreateStudentDto) {
         const student = await this.createStudentUseCase.execute(createStudentDto);

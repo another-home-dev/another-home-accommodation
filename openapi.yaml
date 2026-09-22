@@ -1,70 +1,82 @@
 openapi: 3.0.0
 info:
   title: Another Home API
-  description: The comprehensive microservices API documentation for the Another Home Hostel Management System.
-  version: 1.1.0
+  description: >
+    Unified API contract for the Another Home Hostel Management System, aggregating the
+    Accommodation, Finance, and Gateway (Admin) microservices behind the API Gateway.
+
+
+    All routes are reached through the Gateway at `/api/v1/*`. The Gateway authenticates every
+    request against Asgardeo (see the `bearerAuth` security scheme) before proxying it to the
+    owning microservice, injecting `x-user-id` and `x-user-roles` headers for the service to read.
+
+
+    There is no local `/auth/*` endpoint — login/registration is handled entirely by Asgardeo
+    (hosted login / OIDC), which issues the JWT clients send as the Bearer token.
+
+
+    The **Operations** and **Notifications** sections at the bottom of this document describe
+    planned microservices that have not been implemented yet — they exist for design reference
+    only and are not reachable through the Gateway.
+  version: '2.0'
+servers:
+  - url: http://localhost:3001
+    description: API Gateway (local docker-compose)
+  - url: http://localhost:4001
+    description: Accommodation service (direct, dev only — bypasses Gateway auth)
+  - url: http://localhost:4003
+    description: Finance service (direct, dev only — bypasses Gateway auth)
+
+security:
+  - bearerAuth: []
+
 tags:
-  - name: IAM
-    description: Identity and Access Management (Authentication Microservice).
   - name: Accommodation
-    description: Room inventories and bed allocations (Accommodation Microservice).
-  - name: Operations
-    description: Maintenance, Visitors, and Notices (Operations Microservice).
+    description: Rooms, beds, buildings, students, and bed allocations (Accommodation Microservice).
   - name: Finance
-    description: Fee tracking, invoicing, and payment processing.
-  - name: Notifications
-    description: In-app user alerts and system messages.
+    description: Invoicing and payment tracking (Finance Microservice).
+  - name: Admin
+    description: Warden account management (served by the Gateway itself, not a downstream microservice).
+  - name: Operations (Planned)
+    description: >
+      NOT YET IMPLEMENTED. Maintenance incidents, visitor passes, and notices. No service, route,
+      or database exists for this yet — kept here as the agreed design target for when the
+      Operations microservice is built.
+  - name: Notifications (Planned)
+    description: NOT YET IMPLEMENTED. In-app user alerts and system messages.
 
 paths:
   # ==========================================
-  # 1. IAM (Authentication Microservice)
+  # 1. ACCOMMODATION (Accommodation Microservice)
   # ==========================================
-  /auth/login:
-    post:
-      tags:
-        - IAM
-      summary: Authenticate a user and receive a JWT token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LoginDto"
-      responses:
-        "200":
-          description: Successful login.
-
-  /auth/register:
-    post:
-      tags:
-        - IAM
-      summary: Register a new student account (Pending approval)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RegisterStudentDto"
-      responses:
-        "201":
-          description: Registration submitted successfully.
-
-  /auth/pending-approvals:
+  /api/v1/accommodation/rooms:
     get:
-      tags:
-        - IAM
-      summary: List all pending student registrations (Warden view)
+      tags: [Accommodation]
+      summary: Get all rooms and their current capacity
       responses:
-        "200":
-          description: Returns an array of pending registrations.
-
-  /auth/approve/{registrationId}:
+        '200':
+          description: Returns an array of all rooms.
     post:
-      tags:
-        - IAM
-      summary: Approve or reject a student registration (Warden view)
+      tags: [Accommodation]
+      summary: Create a new hostel room
+      description: 'Requires role: staff, warden, or super-admin.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoomDto'
+      responses:
+        '201':
+          description: Room created successfully.
+
+  /api/v1/accommodation/rooms/{id}:
+    patch:
+      tags: [Accommodation]
+      summary: Update an existing hostel room
+      description: 'Requires role: staff, warden, or super-admin.'
       parameters:
-        - name: registrationId
+        - name: id
           in: path
           required: true
           schema:
@@ -74,82 +86,229 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ApprovalDto"
+              $ref: '#/components/schemas/UpdateRoomDto'
       responses:
-        "200":
-          description: Registration status updated.
+        '200':
+          description: Room updated successfully.
+    delete:
+      tags: [Accommodation]
+      summary: Delete a hostel room
+      description: 'Requires role: staff, warden, or super-admin.'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Room deleted successfully.
 
-  # ==========================================
-  # 2. ACCOMMODATION (Accommodation Microservice)
-  # ==========================================
-  /accommodation/rooms:
+  /api/v1/accommodation/rooms/{id}/assign:
+    post:
+      tags: [Accommodation]
+      summary: Assign a student to the next available bed in a room
+      description: 'Requires role: staff, warden, or super-admin.'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRoomDto'
+      responses:
+        '201':
+          description: Student assigned to room successfully.
+
+  /api/v1/accommodation/beds:
+    post:
+      tags: [Accommodation]
+      summary: Create a new bed in a room
+      description: 'Requires role: staff, warden, or super-admin.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBedDto'
+      responses:
+        '201':
+          description: Bed created successfully.
+
+  /api/v1/accommodation/allocations:
     get:
-      tags:
-        - Accommodation
-      summary: Get all rooms and their current capacity
+      tags: [Accommodation]
+      summary: Get a list of all current bed allocations
       responses:
-        "200":
-          description: Returns an array of all rooms.
+        '200':
+          description: Returns all occupied beds.
     post:
-      tags:
-        - Accommodation
-      summary: Create a new hostel room
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateRoomDto"
-      responses:
-        "201":
-          description: Room created successfully.
-
-  /accommodation/allocations:
-    post:
-      tags:
-        - Accommodation
+      tags: [Accommodation]
       summary: Assign a student to a specific bed
+      description: 'Requires role: staff, warden, or super-admin.'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AllocateBedDto"
+              $ref: '#/components/schemas/AllocateBedDto'
       responses:
-        "201":
+        '201':
           description: Student successfully allocated.
+        '400':
+          description: Bed already occupied or not found.
+
+  /api/v1/accommodation/buildings:
+    get:
+      tags: [Accommodation]
+      summary: Get all buildings with occupancy summary
+      responses:
+        '200':
+          description: Returns an array of all buildings.
+    post:
+      tags: [Accommodation]
+      summary: Create a new hostel building
+      description: 'Requires role: staff, warden, or super-admin.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBuildingDto'
+      responses:
+        '201':
+          description: Building created successfully.
+
+  /api/v1/accommodation/students:
+    get:
+      tags: [Accommodation]
+      summary: Get all students with their current room assignment
+      responses:
+        '200':
+          description: Returns an array of all students.
+    post:
+      tags: [Accommodation]
+      summary: Register a new student
+      description: 'Requires role: staff, warden, or super-admin.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStudentDto'
+      responses:
+        '201':
+          description: Student created successfully.
 
   # ==========================================
-  # 3. OPERATIONS (Operations Microservice)
+  # 2. FINANCE (Finance Microservice)
+  # ==========================================
+  /api/v1/finance/invoices:
+    get:
+      tags: [Finance]
+      summary: Get all invoices
+      responses:
+        '200':
+          description: Returns an array of all invoices.
+    post:
+      tags: [Finance]
+      summary: Create a new fee invoice for a student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvoiceDto'
+      responses:
+        '201':
+          description: Invoice created successfully.
+
+  /api/v1/finance/invoices/{studentId}:
+    get:
+      tags: [Finance]
+      summary: Get all invoices for a specific student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Returns an array of invoices for the student.
+
+  /api/v1/finance/payments:
+    post:
+      tags: [Finance]
+      summary: Log a payment against an invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogPaymentDto'
+      responses:
+        '201':
+          description: Payment logged successfully.
+
+  # ==========================================
+  # 3. ADMIN (served by the Gateway)
+  # ==========================================
+  /api/v1/admin/wardens:
+    get:
+      tags: [Admin]
+      summary: List all warden accounts
+      description: 'Requires role: super-admin.'
+      responses:
+        '200':
+          description: Returns an array of wardens.
+    post:
+      tags: [Admin]
+      summary: Create a new warden account
+      description: 'Requires role: super-admin. Provisions the account in Asgardeo and assigns the warden role.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWardenDto'
+      responses:
+        '201':
+          description: Warden created successfully.
+
+  # ==========================================
+  # 4. OPERATIONS (Planned — not yet implemented)
   # ==========================================
   # --- Maintenance ---
-  /operations/incidents:
+  /api/v1/operations/incidents:
     get:
-      tags:
-        - Operations
-      summary: View all logged maintenance incidents
+      tags: [Operations (Planned)]
+      summary: '[PLANNED] View all logged maintenance incidents'
       responses:
-        "200":
+        '200':
           description: Returns an array of incidents.
     post:
-      tags:
-        - Operations
-      summary: Report a new maintenance issue (Student app)
+      tags: [Operations (Planned)]
+      summary: '[PLANNED] Report a new maintenance issue (Student app)'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ReportIncidentDto"
+              $ref: '#/components/schemas/ReportIncidentDto'
       responses:
-        "201":
+        '201':
           description: Incident reported successfully.
 
-  /operations/incidents/{incidentId}/resolve:
+  /api/v1/operations/incidents/{incidentId}/resolve:
     patch:
-      tags:
-        - Operations
-      summary: Mark an incident as resolved (Warden view)
+      tags: [Operations (Planned)]
+      summary: '[PLANNED] Mark an incident as resolved (Warden view)'
       parameters:
         - name: incidentId
           in: path
@@ -157,37 +316,34 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        '200':
           description: Incident resolved.
 
   # --- Visitors ---
-  /operations/visitors:
+  /api/v1/operations/visitors:
     get:
-      tags:
-        - Operations
-      summary: View visitor logs and pending requests
+      tags: [Operations (Planned)]
+      summary: '[PLANNED] View visitor logs and pending requests'
       responses:
-        "200":
+        '200':
           description: Returns an array of visitor requests.
     post:
-      tags:
-        - Operations
-      summary: Request a visitor entry pass (Student app)
+      tags: [Operations (Planned)]
+      summary: '[PLANNED] Request a visitor entry pass (Student app)'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RequestVisitorDto"
+              $ref: '#/components/schemas/RequestVisitorDto'
       responses:
-        "201":
+        '201':
           description: Visitor request submitted.
 
-  /operations/visitors/{visitorId}/status:
+  /api/v1/operations/visitors/{visitorId}/status:
     patch:
-      tags:
-        - Operations
-      summary: Approve or reject a visitor entry (Warden view)
+      tags: [Operations (Planned)]
+      summary: '[PLANNED] Approve or reject a visitor entry (Warden view)'
       parameters:
         - name: visitorId
           in: path
@@ -199,75 +355,39 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ApprovalDto"
+              $ref: '#/components/schemas/ApprovalDto'
       responses:
-        "200":
+        '200':
           description: Visitor status updated.
 
   # --- Notices ---
-  /operations/notices:
+  /api/v1/operations/notices:
     get:
-      tags:
-        - Operations
-      summary: Get all published notices and announcements
+      tags: [Operations (Planned)]
+      summary: '[PLANNED] Get all published notices and announcements'
       responses:
-        "200":
+        '200':
           description: Returns an array of notices.
     post:
-      tags:
-        - Operations
-      summary: Publish a new notice (Warden view)
+      tags: [Operations (Planned)]
+      summary: '[PLANNED] Publish a new notice (Warden view)'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateNoticeDto"
+              $ref: '#/components/schemas/CreateNoticeDto'
       responses:
-        "201":
+        '201':
           description: Notice published successfully.
 
   # ==========================================
-  # 4. FINANCE
+  # 5. NOTIFICATIONS (Planned — not yet implemented)
   # ==========================================
-  /finance/invoices/{studentId}:
+  /api/v1/notifications/{userId}:
     get:
-      tags:
-        - Finance
-      summary: Get all pending fee invoices for a student
-      parameters:
-        - name: studentId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Returns an array of invoices.
-
-  /finance/payments:
-    post:
-      tags:
-        - Finance
-      summary: Submit a payment receipt for an invoice
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SubmitPaymentDto"
-      responses:
-        "201":
-          description: Payment logged.
-
-  # ==========================================
-  # 5. NOTIFICATIONS
-  # ==========================================
-  /notifications/{userId}:
-    get:
-      tags:
-        - Notifications
-      summary: Get all in-app notifications for a user
+      tags: [Notifications (Planned)]
+      summary: '[PLANNED] Get all in-app notifications for a user'
       parameters:
         - name: userId
           in: path
@@ -275,14 +395,13 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        '200':
           description: Returns an array of notifications.
 
-  /notifications/{notificationId}/read:
+  /api/v1/notifications/{notificationId}/read:
     patch:
-      tags:
-        - Notifications
-      summary: Mark a specific notification as read
+      tags: [Notifications (Planned)]
+      summary: '[PLANNED] Mark a specific notification as read'
       parameters:
         - name: notificationId
           in: path
@@ -290,10 +409,17 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        '200':
           description: Notification marked as read.
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Asgardeo-issued access token. The Gateway verifies it against the Asgardeo JWKS before proxying the request.
+
   schemas:
     # --- Shared Schemas ---
     ApprovalDto:
@@ -306,48 +432,7 @@ components:
           enum: [APPROVED, REJECTED]
         remarks:
           type: string
-          example: "Verified details."
-
-    # --- IAM Schemas ---
-    LoginDto:
-      type: object
-      required:
-        - email
-        - password
-      properties:
-        email:
-          type: string
-          example: student@university.lk
-        password:
-          type: string
-          format: password
-          example: "securepassword123"
-
-    RegisterStudentDto:
-      type: object
-      required:
-        - studentId
-        - fullName
-        - email
-        - password
-        - contactNumber
-      properties:
-        studentId:
-          type: string
-          example: STU-2023-045
-        fullName:
-          type: string
-          example: "U.G.I. Ranhiru"
-        email:
-          type: string
-          example: ranhiru@student.lk
-        password:
-          type: string
-          format: password
-          example: "strong123"
-        contactNumber:
-          type: string
-          example: "+94771234567"
+          example: 'Verified details.'
 
     # --- Accommodation Schemas ---
     CreateRoomDto:
@@ -355,18 +440,87 @@ components:
       required:
         - roomNumber
         - capacity
-        - designation
+        - gender
+        - airConditioning
+        - rentPerMonth
+        - floor
       properties:
         roomNumber:
           type: string
           example: A-101
+          description: The unique identifier for the room (e.g., Block-Number).
         capacity:
           type: integer
           example: 4
-        designation:
+          description: Maximum number of beds in this room.
+        gender:
           type: string
           enum: [Male, Female, Neutral]
           example: Male
+          description: The designated gender for this specific room or block.
+        airConditioning:
+          type: string
+          enum: [AC, Non-AC]
+          example: Non-AC
+        rentPerMonth:
+          type: number
+          example: 5000
+          description: Monthly rent for the room in local currency.
+        floor:
+          type: integer
+          example: 1
+        buildingId:
+          type: string
+          nullable: true
+          description: The ID of the building this room belongs to.
+
+    UpdateRoomDto:
+      type: object
+      description: All fields are optional — only the fields provided are updated.
+      properties:
+        roomNumber:
+          type: string
+        capacity:
+          type: integer
+        gender:
+          type: string
+          enum: [Male, Female, Neutral]
+        airConditioning:
+          type: string
+          enum: [AC, Non-AC]
+        rentPerMonth:
+          type: number
+        floor:
+          type: integer
+        buildingId:
+          type: string
+
+    AssignRoomDto:
+      type: object
+      required:
+        - studentId
+      properties:
+        studentId:
+          type: string
+          example: STU-2023-045
+          description: The ID of the student being assigned to the room.
+
+    CreateBedDto:
+      type: object
+      required:
+        - bedId
+        - bedNumber
+        - roomId
+      properties:
+        bedId:
+          type: string
+          description: The unique ID of the bed.
+        bedNumber:
+          type: string
+          description: The display number or name of the bed.
+        roomId:
+          type: string
+          description: The ID of the room this bed belongs to.
 
     AllocateBedDto:
       type: object
@@ -381,7 +535,108 @@ components:
           type: string
           example: BED-A101-01
 
-    # --- Operations Schemas ---
+    CreateBuildingDto:
+      type: object
+      required:
+        - name
+        - address
+        - floorCount
+      properties:
+        name:
+          type: string
+          example: Sunrise Block
+        address:
+          type: string
+          example: 12 Lake Road, Colombo
+        floorCount:
+          type: integer
+          example: 4
+
+    CreateStudentDto:
+      type: object
+      required:
+        - studentCode
+        - name
+        - email
+        - contact
+      properties:
+        studentCode:
+          type: string
+          example: AH-1000
+        name:
+          type: string
+          example: Ishara Perera
+        email:
+          type: string
+          format: email
+          example: ishara.perera@student.anotherhome.com
+        contact:
+          type: string
+          example: '+94 71 234 5678'
+        guardianName:
+          type: string
+        guardianContact:
+          type: string
+        address:
+          type: string
+
+    # --- Finance Schemas ---
+    CreateInvoiceDto:
+      type: object
+      required:
+        - studentId
+        - amount
+        - dueDate
+        - description
+      properties:
+        studentId:
+          type: string
+          example: STU-2023-045
+        amount:
+          type: number
+          example: 5000
+        dueDate:
+          type: string
+          format: date
+          example: '2026-10-01'
+        description:
+          type: string
+          example: October rent
+
+    LogPaymentDto:
+      type: object
+      required:
+        - invoiceId
+        - amount
+      properties:
+        invoiceId:
+          type: string
+          example: INV-2026-08
+        amount:
+          type: number
+          format: float
+          example: 2500.0
+        referenceNumber:
+          type: string
+          description: Optional bank/payment gateway reference.
+
+    # --- Admin Schemas ---
+    CreateWardenDto:
+      type: object
+      required:
+        - name
+        - email
+        - contact
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        contact:
+          type: string
+
+    # --- Operations Schemas (Planned) ---
     ReportIncidentDto:
       type: object
       required:
@@ -395,7 +650,7 @@ components:
           example: Electrical
         description:
           type: string
-          example: "Ceiling fan making noise."
+          example: 'Ceiling fan making noise.'
         roomId:
           type: string
           example: A-101
@@ -413,14 +668,14 @@ components:
           example: STU-2023-045
         visitorName:
           type: string
-          example: "Kamal Perera"
+          example: 'Kamal Perera'
         relation:
           type: string
-          example: "Father"
+          example: 'Father'
         expectedDate:
           type: string
           format: date
-          example: "2026-07-15"
+          example: '2026-07-15'
 
     CreateNoticeDto:
       type: object
@@ -430,26 +685,7 @@ components:
       properties:
         title:
           type: string
-          example: "Water Cut Notice"
+          example: 'Water Cut Notice'
         content:
           type: string
-          example: "Water supply will be interrupted tomorrow from 10 AM to 2 PM."
-
-    # --- Finance Schemas ---
-    SubmitPaymentDto:
-      type: object
-      required:
-        - invoiceId
-        - amountPaid
-        - referenceNumber
-      properties:
-        invoiceId:
-          type: string
-          example: INV-2026-08
-        amountPaid:
-          type: number
-          format: float
-          example: 2500.00
-        referenceNumber:
-          type: string
-          example: "BK-TRANSFER-99281"
+          example: 'Water supply will be interrupted tomorrow from 10 AM to 2 PM.'
