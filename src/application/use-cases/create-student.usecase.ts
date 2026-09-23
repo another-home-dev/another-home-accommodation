@@ -22,6 +22,12 @@ export class CreateStudentUseCase {
             dto.guardianName ?? null,
             dto.guardianContact ?? null,
             dto.address ?? null,
+            undefined,
+            null,
+            dto.faculty ?? null,
+            dto.degreeProgram ?? null,
+            dto.academicYear ?? null,
+            dto.nic ?? null,
         );
         return await this.studentRepository.save(newStudent);
     }

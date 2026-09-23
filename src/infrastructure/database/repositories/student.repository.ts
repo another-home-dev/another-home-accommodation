@@ -29,4 +29,16 @@ export class StudentRepository implements IStudentRepository {
         const ormEntities = await this.typeOrmRepository.find();
         return ormEntities.map((entity) => StudentMapper.toDomain(entity));
     }
+
+    async findByAsgardeoSub(asgardeoSub: string): Promise<Student | null> {
+        const ormEntity = await this.typeOrmRepository.findOne({ where: { asgardeoSub } });
+        if (!ormEntity) return null;
+        return StudentMapper.toDomain(ormEntity);
+    }
+
+    async findByEmail(email: string): Promise<Student | null> {
+        const ormEntity = await this.typeOrmRepository.findOne({ where: { email } });
+        if (!ormEntity) return null;
+        return StudentMapper.toDomain(ormEntity);
+    }
 }

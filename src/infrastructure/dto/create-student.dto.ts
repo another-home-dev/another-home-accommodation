@@ -35,4 +35,24 @@ export class CreateStudentDto {
     @IsOptional()
     @IsString()
     address?: string;
+
+    @ApiProperty({ required: false, example: 'Engineering' })
+    @IsOptional()
+    @IsString()
+    faculty?: string;
+
+    @ApiProperty({ required: false, example: 'BSc (Hons) Computer Science' })
+    @IsOptional()
+    @IsString()
+    degreeProgram?: string;
+
+    @ApiProperty({ required: false, example: '3rd Year' })
+    @IsOptional()
+    @IsString()
+    academicYear?: string;
+
+    @ApiProperty({ required: false, example: '200012345678' })
+    @IsOptional()
+    @IsString()
+    nic?: string;
 }
