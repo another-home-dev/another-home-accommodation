@@ -20,6 +20,9 @@ import { CreateStudentUseCase } from '../../application/use-cases/create-student
 import { GetAllStudentsUseCase } from '../../application/use-cases/get-all-students.usecase';
 import { AssignStudentToRoomUseCase } from '../../application/use-cases/assign-student-to-room.usecase';
 import { ResolveCurrentStudentUseCase } from '../../application/use-cases/resolve-current-student.usecase';
+import type { CallerIdentity } from '../../application/use-cases/resolve-current-student.usecase';
+import { UpdateCurrentStudentUseCase } from '../../application/use-cases/update-current-student.usecase';
+import { UpdateCurrentStudentDto } from '../dto/update-current-student.dto';
 import { RolesGuard, Roles } from '../guards/roles.guard';
 
 @ApiTags('Accommodation')
@@ -46,18 +49,49 @@ export class AccommodationController {
         private readonly getAllStudentsUseCase: GetAllStudentsUseCase,
         private readonly assignStudentToRoomUseCase: AssignStudentToRoomUseCase,
         private readonly resolveCurrentStudentUseCase: ResolveCurrentStudentUseCase,
+        private readonly updateCurrentStudentUseCase: UpdateCurrentStudentUseCase,
     ) { }
 
     @Get('students/me')
-    @ApiOperation({ summary: "Resolve the logged-in student's own record (links Asgardeo account to Student by email on first call)" })
+    @ApiOperation({ summary: "Resolve the logged-in student's own record, linking or creating it on first login" })
     @ApiHeader({ name: 'x-user-id', description: 'Injected by the gateway from the JWT `sub` claim', required: true })
     @ApiHeader({ name: 'x-user-email', description: 'Injected by the gateway from the JWT `email` claim', required: false })
-    async getCurrentStudent(@Headers('x-user-id') asgardeoSub: string, @Headers('x-user-email') email?: string) {
-        const student = await this.resolveCurrentStudentUseCase.execute(asgardeoSub, email);
+    @ApiHeader({ name: 'x-user-name', description: 'URI-encoded display name, injected by the gateway', required: false })
+    async getCurrentStudent(
+        @Headers('x-user-id') asgardeoSub: string,
+        @Headers('x-user-email') email?: string,
+        @Headers('x-user-name') encodedName?: string,
+    ) {
+        const student = await this.resolveCurrentStudentUseCase.execute(this.caller(asgardeoSub, email, encodedName));
         return {
             message: 'Resolved current student successfully.',
             data: student,
         };
+    }
+
+    @Patch('students/me')
+    @ApiOperation({ summary: "Update the logged-in student's own profile" })
+    async updateCurrentStudent(
+        @Headers('x-user-id') asgardeoSub: string,
+        @Body() dto: UpdateCurrentStudentDto,
+        @Headers('x-user-email') email?: string,
+        @Headers('x-user-name') encodedName?: string,
+    ) {
+        const student = await this.updateCurrentStudentUseCase.execute(this.caller(asgardeoSub, email, encodedName), dto);
+        return {
+            message: 'Profile updated successfully.',
+            data: student,
+        };
+    }
+
+    private caller(asgardeoSub: string, email?: string, encodedName?: string): CallerIdentity {
+        let name: string | undefined;
+        try {
+            name = encodedName ? decodeURIComponent(encodedName) : undefined;
+        } catch {
+            name = undefined;
+        }
+        return { asgardeoSub, email, name };
     }
 
     @Post('rooms')
