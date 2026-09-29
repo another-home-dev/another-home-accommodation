@@ -74,6 +74,7 @@ describe('RoomRepository against a real MySQL database', () => {
   it('documents that a real MySQL DECIMAL column round-trips as a STRING, not a number', async () => {
     const saved = await repository.save(makeRoom({ rentPerMonth: 15000.5 }));
     const fetched = await repository.findById(saved.roomId);
+    console.log('rentPerMonth typeof:', typeof fetched!.rentPerMonth, 'value:', fetched!.rentPerMonth);
 
     expect(fetched).not.toBeNull();
     // This is the finding: TypeORM's mysql2 driver returns DECIMAL columns as
