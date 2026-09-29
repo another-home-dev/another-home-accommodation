@@ -19,6 +19,11 @@ import { HealthController } from './health.controller';
             database: process.env.DB_DATABASE ?? 'another_home_accommodation',
             entities: [RoomOrmEntity, BedOrmEntity, BuildingOrmEntity, StudentOrmEntity], // Add any new ORM entities here
             synchronize: true,         // MAGIC: Automatically builds the SQL tables for you based on the entities (Keep this true for dev, false for prod)
+            // Default mysql2 pool is 10; raised to handle bursts of concurrent
+            // students (e.g. everyone opening the app around the same time).
+            // 4 services share one MySQL instance (max_connections: 151
+            // default), so 25 each (100 total) leaves headroom for the rest.
+            extra: { connectionLimit: 25 },
         }),
         AccommodationModule,
     ],
