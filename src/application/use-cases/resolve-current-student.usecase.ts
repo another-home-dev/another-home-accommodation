@@ -93,6 +93,7 @@ export class ResolveCurrentStudentUseCase {
 
         return {
             ...student,
+            roomId: room?.roomId ?? null,
             roomNumber: room?.roomNumber ?? null,
             buildingName: building?.name ?? null,
         };
