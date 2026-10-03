@@ -1,99 +1,89 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Another Home — Accommodation Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Manages the hostel itself: buildings, rooms, beds, students and room allocation. It also links each student's Asgardeo sign-in to their student record.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Part of [Another Home](https://github.com/another-home-dev). Reached through the API gateway at `/api/v1/accommodation`.
 
-## Description
+## What it does
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- Stores buildings, the rooms on each floor, and the beds in each room, with occupancy totals.
+- Registers students and assigns them to rooms.
+- Resolves the signed-in student on every app launch (`GET /students/me`):
+  - if a warden registered the student earlier, it links the two by email on first sign-in;
+  - if the student signed up on Asgardeo themselves, it creates their record, so they appear in the warden's student list.
 
-## Project setup
+## API
+
+Paths are relative to `/api/v1/accommodation`. Write operations need the `warden`, `super-admin` or `staff` role, which the gateway passes in `x-user-roles`.
+
+| Method | Path | Who | Purpose |
+| --- | --- | --- | --- |
+| GET | `/students/me` | Student | Get (or link or create) the signed-in student's record, with their room |
+| PATCH | `/students/me` | Student | Update the signed-in student's profile |
+| GET | `/students` | Any signed-in user | List students with their room |
+| POST | `/students` | Staff | Register a student |
+| GET | `/buildings` | Any signed-in user | List buildings with occupancy |
+| POST | `/buildings` | Staff | Create a building |
+| GET | `/rooms` | Any signed-in user | List rooms with capacity |
+| POST | `/rooms` | Staff | Create a room |
+| PATCH | `/rooms/:id` | Staff | Update a room |
+| DELETE | `/rooms/:id` | Staff | Delete a room |
+| POST | `/rooms/:id/assign` | Staff | Assign a student to the next free bed in a room |
+| POST | `/beds` | Staff | Add a bed to a room |
+| GET | `/allocations` | Any signed-in user | List bed allocations |
+| POST | `/allocations` | Staff | Assign a student to a specific bed |
+| GET | `/health` | Anyone | Health check for Kubernetes and Consul |
+
+Interactive docs: `/api/docs` on the gateway, or `http://localhost:4001/api/docs` when running locally.
+
+## Configuration
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `PORT` | Port to listen on | `4001` |
+| `DB_HOST`, `DB_PORT` | MySQL server | `localhost`, `3308` |
+| `DB_USERNAME`, `DB_PASSWORD` | MySQL credentials | |
+| `DB_DATABASE` | Database name | `another_home_accommodation` |
+| `CONSUL_HOST`, `CONSUL_PORT` | Service registry to register with | |
+| `SERVICE_ADDRESS` | Address this service registers under in Consul | |
+
+## Run locally
+
+The easiest way is to start the whole system with `docker compose up --build` from [another-home-infra](https://github.com/another-home-dev/anotherhome-infrastructure). Its README shows how to clone every repository into the folder names it expects.
+
+To run this service on its own, with a MySQL server available:
 
 ```bash
-$ npm install
+npm install
+npm run start:dev
 ```
 
-## Compile and run the project
+## Tests
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm test                    # unit tests: use cases and the roles guard
+npm run test:e2e            # end-to-end tests
+npm run test:db-integration # repository tests against a real MySQL database
 ```
 
-## Run tests
+## Project structure
 
-```bash
-# unit tests
-$ npm run test
+The service follows clean architecture: the domain has no framework code, and the outer layers depend inward.
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+```
+src/
+├── domain/
+│   ├── entities/          Building, Room, Bed, Student
+│   └── ports/             repository interfaces
+├── application/
+│   └── use-cases/         one class per operation (create room, allocate bed, resolve current student…)
+└── infrastructure/
+    ├── controllers/       HTTP endpoints
+    ├── database/          TypeORM entities, mappers and repositories
+    ├── dto/               request validation
+    └── guards/            role checks
 ```
 
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
-
+`cloudbuild.yaml` runs on every push to `main`: tests, Docker build, push to Artifact Registry, then a rolling update of the `accommodation` deployment on GKE.
